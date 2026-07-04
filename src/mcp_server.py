@@ -8,9 +8,6 @@ DB_PATH = "financial_analyst.db"
 
 @mcp.tool()
 def get_db_schema() -> str:
-    """
-    Retrieves the schema of the financial database. Use this first to see available tables and columns.
-    """
     try:
         con = duckdb.connect(DB_PATH, read_only=True)
         schema_info = con.execute("PRAGMA table_info('nifty500');").df()
@@ -21,9 +18,6 @@ def get_db_schema() -> str:
 
 @mcp.tool()
 def query_db(sql_query: str) -> str:
-    """
-    Executes a read-only SQL query against the 'nifty500' table in the DuckDB database.
-    """
     try:
         con = duckdb.connect(DB_PATH, read_only=True)
         result_df = con.execute(sql_query).df()
@@ -34,13 +28,11 @@ def query_db(sql_query: str) -> str:
 
 @mcp.tool()
 def compute_cagr(start_val: float, end_val: float, periods: int) -> str:
-    """Calculates Compound Annual Growth Rate (CAGR)."""
     result = tools.calculate_cagr(start_val, end_val, periods)
     return f"Calculated CAGR over {periods} periods is: {result:.2%}"
 
 @mcp.tool()
 def compute_volatility(prices: list[float]) -> str:
-    """Calculates annualized historical volatility for a list of consecutive closing prices."""
     result = tools.calculate_volatility(prices)
     return f"The annualized volatility is: {result:.2%}"
 
