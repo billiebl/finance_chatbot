@@ -20,7 +20,7 @@ st.title("🤖 Financial Analyst Chatbot")
 st.write("This chatbot uses Model Context Protocol (MCP) and DuckDB to analyze your structured financial data.")
 
 # Set your OpenAI API key
-os.environ["OPENAI_API_KEY"] = "your-openai-api-key-here"
+os.environ["OPENAI_API_KEY"] = "ysk-proj-q2Hl_eVtwvqLYLHmZZA_IAWn7XZYJ7-o6waBpwRGdiMtlcWu9oNWcxc8TWqLwry_nntqvTJAZmT3BlbkFJ0SQYJjBEq4fNgMletBwKQyvOhrW7P5gdjIL7pldLen6iSpNLnV_2zF_XcRoruCKrykcPeVFtUA"
 
 # --- Thread-Safe Event Loop Runner ---
 # Streamlit runs synchronously, so we run our async MCP client on a dedicated background thread.
