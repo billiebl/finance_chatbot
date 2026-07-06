@@ -1,8 +1,7 @@
 import duckdb
 from fastmcp import FastMCP
-import financial_tools as tools # Import our calculation module
+import financial_tools as tools
 
-# Initialize FastMCP Server
 mcp = FastMCP("Financial-Analyst-Server")
 DB_PATH = "financial_analyst.db"
 
@@ -37,5 +36,5 @@ def compute_volatility(prices: list[float]) -> str:
     return f"The annualized volatility is: {result:.2%}"
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)
 
