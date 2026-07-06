@@ -1,12 +1,17 @@
 import streamlit as st
-import os
+# import os
+import torch
 import asyncio
+from contextlib import AsyncExitStack
+import pathlib
+import requests
 from threading import Thread
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from transformers import BitsAndBytesConfig
-from langchain_huggingface import HuggingFacePipeline
+from langchain_huggingface import ChatHuggingFace, HuggingFacePipeline
+import torch
 from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import Tool
 from langchain_core.messages import HumanMessage, AIMessage
@@ -22,6 +27,9 @@ SYSTEM_PROMPT = """You are a powerful financial analyst assistant.
 - Always present the data you have retrieved before providing your final answer.
 - If you don't know the answer or cannot find the data, simply state that."""
 
+def call_llm(prompt: str) -> str:
+    response = requests.post("http://localhost:8001/generate", json={"prompt": prompt})
+    return response.json()["text"]
 
 @st.cache_resource
 def get_event_loop():
@@ -38,18 +46,17 @@ def run_async(coro):
 
 @st.cache_resource
 def get_llm():
-    model_name = "AdaptLLM/finance-chat"
+    model_name = "Qwen/Qwen2.5-1.5B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    quant_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_compute_dtype="float16"
-    )
+
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        quantization_config=quant_config,
-        device_map="auto",
+        torch_dtype=torch.float16 if device == "mps" else torch.float32,
         trust_remote_code=True
-    )
+    ).to(device)
+
     pipe = pipeline(
         "text-generation",
         model=model,
@@ -58,22 +65,21 @@ def get_llm():
         temperature=0,
         do_sample=False,
         return_full_text=False,
+        device=0 if device == "mps" else -1
     )
-    return HuggingFacePipeline(pipeline=pipe)
 
+    llm = HuggingFacePipeline(pipeline=pipe)
+    return ChatHuggingFace(llm=llm, tokenizer=tokenizer)
 
 @st.cache_resource
 def connect_to_mcp():
     async def connect():
-        params = StdioServerParameters(
-            command="python",
-            args=[os.path.abspath("mcp_server.py")]
-        )
-        transport = stdio_client(params)
-        reader, writer = await transport.__aenter__()
-        session = ClientSession(reader, writer)
+        stack = AsyncExitStack()
+        params = StdioServerParameters(command="python", args=[str(pathlib.Path(__file__).parent / "mcp_server.py")])
+        reader, writer = await stack.enter_async_context(stdio_client(params))
+        session = await stack.enter_async_context(ClientSession(reader, writer))
         await session.initialize()
-        return transport, session
+        return stack, session
     return run_async(connect())
 
 transport, session = connect_to_mcp()
@@ -92,7 +98,7 @@ def build_agent_and_tools(_session):
         langchain_tools.append(
             Tool(name=t.name, description=t.description, func=make_wrapper(t.name))
         )
-    agent = create_react_agent(model=get_llm(), tools=langchain_tools, state_modifier=SYSTEM_PROMPT)
+    agent = create_react_agent(model=get_llm(), tools=langchain_tools, prompt=SYSTEM_PROMPT)
     return agent, langchain_tools
 
 
